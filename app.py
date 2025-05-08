@@ -2,13 +2,18 @@ from flask import Flask, render_template, request, jsonify
 import yt_dlp
 import os
 from threading import Thread
+import tempfile
 
 app = Flask(__name__)
 
 progress_data = {"status": "idle", "progress": 0, "message": ""}
 
 def download_video(url):
-    download_path = os.path.join(os.path.expanduser("~"), "Downloads")
+    # Use temp directory for Render deployment
+    if os.environ.get('RENDER'):
+        download_path = tempfile.gettempdir()
+    else:
+        download_path = os.path.join(os.path.expanduser("~"), "Downloads")
     # video_path = ""
 
     def progress_hook(d):
