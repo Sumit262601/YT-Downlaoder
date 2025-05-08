@@ -27,12 +27,14 @@ def download_video(url):
             progress_data["message"] = f"✅ Download completed! Video saved to: {download_path}"
 
     ydl_opts = {
-        'format': 'bestvideo[height<=1080]+bestaudio/best',
+        'format': 'bestvideo[height<=1080]+bestaudio/best[ext=m4a]/best',
         'merge_output_format': 'mp4',
         'outtmpl': os.path.join(download_path, '%(title)s.%(ext)s'),
         'progress_hooks': [progress_hook],
         'noplaylist': True,
         'quiet': False,  # Make sure to set it to False to see the process output
+        'no_warnings': True,
+        'nocheckcertificate': True  # Add this line for HTTPS support
     }
 
     try:
@@ -68,4 +70,5 @@ def progress():
     return jsonify(progress_data)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
