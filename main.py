@@ -3,6 +3,8 @@ from tkinter import filedialog, messagebox
 import re
 import threading
 import yt_dlp
+import certifi
+import ssl
 
 class YouTubeDownloader:
     def __init__(self):
@@ -108,6 +110,9 @@ class YouTubeDownloader:
     def download_video_thread(self):
         """Handles the actual download process"""
         try:
+            # Create SSL context with certifi
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+            
             url = self.url_entry.get().strip()
             if not url:
                 self.window.after(0, lambda: messagebox.showerror("Error", "Please enter a YouTube URL"))
@@ -134,7 +139,7 @@ class YouTubeDownloader:
                 'progress_hooks': [self.progress_hook],
                 'quiet': True,
                 'no_warnings': True,
-                'nocheckcertificate': True,
+                'nocheckcertificate': False,  # Enable certificate verification
                 'http_headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                 },
@@ -142,10 +147,13 @@ class YouTubeDownloader:
                 'postprocessors': [{
                     'key': 'FFmpegVideoConvertor',
                     'preferedformat': 'mp4'
-                }]
+                }],
+                'socket_opts': {
+                    'ssl_context': ssl_context
+                }
             }
 
-            # Create yt-dlp instance with verify=False for requests
+            # Create yt-dlp instance with SSL verification
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
                     # Extract video info first
@@ -154,6 +162,10 @@ class YouTubeDownloader:
                     
                     if info is None:
                         raise Exception("Could not fetch video information")
+                    
+                    # Check if video is copyrighted or private
+                    if info.get('age_limit', 0) > 0 or info.get('is_private', False):
+                        raise Exception("This video is age-restricted or private")
                     
                     # Download video
                     self.window.after(0, lambda: self.status_label.configure(text="Downloading video..."))
