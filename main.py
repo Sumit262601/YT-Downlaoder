@@ -5,6 +5,7 @@ import threading
 import yt_dlp
 import certifi
 import ssl
+import time
 
 class YouTubeDownloader:
     def __init__(self):
@@ -96,6 +97,22 @@ class YouTubeDownloader:
         )
         self.status_label.pack(pady=10)
 
+        # Add Publisher Info at the bottom
+        self.publisher_frame = ctk.CTkFrame(self.window, fg_color="transparent")
+        self.publisher_frame.pack(side="bottom", pady=10)
+        
+        self.publisher_label = ctk.CTkLabel(
+            self.publisher_frame,
+            text="© 2025 Your Company Name | Version 1.0",
+            font=("Arial", 10),
+            text_color="gray"
+        )
+        self.publisher_label.pack()
+
+        # Move the original status_label above the publisher info
+        self.status_label.pack_forget()
+        self.status_label.pack(pady=(5,10))
+
     def validate_url(self, url):
         """Validate YouTube URL format"""
         youtube_regex = r'^(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/)[A-Za-z0-9_-]{11}.*$'
@@ -134,14 +151,19 @@ class YouTubeDownloader:
             selected_quality = self.quality_var.get()
             
             ydl_opts = {
-                'format': f'bestvideo[height<={selected_quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/best[height<={selected_quality[:-1]}][ext=mp4]',
+                'format': f'bestvideo[height<={selected_quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                 'outtmpl': f'{download_path}/%(title)s.%(ext)s',
                 'progress_hooks': [self.progress_hook],
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': False,  # Enable certificate verification
                 'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-us,en;q=0.5',
+                    'Accept-Encoding': 'gzip,deflate',
+                    'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+                    'Connection': 'keep-alive',
                 },
                 'format_sort': ['res:1080', 'ext:mp4:m4a'],
                 'postprocessors': [{
@@ -150,8 +172,15 @@ class YouTubeDownloader:
                 }],
                 'socket_opts': {
                     'ssl_context': ssl_context
-                }
+                },
+                'retries': 3,
+                'fragment_retries': 3,
+                'ignoreerrors': True,
+                'socket_timeout': 10,
             }
+
+            # Add a small delay before making the request
+            time.sleep(2)
 
             # Create yt-dlp instance with SSL verification
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
