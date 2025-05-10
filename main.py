@@ -6,7 +6,6 @@ import yt_dlp
 import certifi
 import ssl
 import time
-import requests
 
 class YouTubeDownloader:
     def __init__(self):
@@ -128,9 +127,6 @@ class YouTubeDownloader:
     def download_video_thread(self):
         """Handles the actual download process"""
         try:
-            # Create SSL context with certifi
-            ssl_context = ssl.create_default_context(cafile=certifi.where())
-            
             url = self.url_entry.get().strip()
             if not url:
                 self.window.after(0, lambda: messagebox.showerror("Error", "Please enter a YouTube URL"))
@@ -152,51 +148,39 @@ class YouTubeDownloader:
             selected_quality = self.quality_var.get()
             
             ydl_opts = {
-                'format': f'bestvideo[height<={selected_quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                'format': f'bestvideo[height<={selected_quality[:-1]}]+bestaudio/best',
                 'outtmpl': f'{download_path}/%(title)s.%(ext)s',
                 'progress_hooks': [self.progress_hook],
                 'quiet': True,
                 'no_warnings': True,
-                'nocheckcertificate': True,  # Changed to True to bypass some SSL issues
+                'nocheckcertificate': True,
                 'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                    'Accept': '*/*',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Connection': 'keep-alive',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 },
-                'format_sort': ['res:1080', 'ext:mp4:m4a'],
-                'postprocessors': [{
-                    'key': 'FFmpegVideoConvertor',
-                    'preferedformat': 'mp4'
-                }],
-                'socket_timeout': 30,  # Increased timeout
-                'retries': 5,  # Increased retries
+                'socket_timeout': 30,
+                'retries': 5,
                 'fragment_retries': 5,
+                'force_generic_extractor': False,
+                'extractor_retries': 5,
+                'file_access_retries': 5,
+                'cookiefile': 'cookies.txt',  # Save cookies to file
+                'merge_output_format': 'mp4'
             }
 
-            # Add retry mechanism
             max_retries = 3
             retry_count = 0
             
             while retry_count < max_retries:
                 try:
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        self.window.after(0, lambda: self.status_label.configure(text="Extracting video information..."))
-                        info = ydl.extract_info(url, download=False)
-                        
-                        if info is None:
-                            raise Exception("Could not fetch video information")
-                        
                         self.window.after(0, lambda: self.status_label.configure(text="Downloading video..."))
-                        ydl.download([url])
-                        break  # If successful, break the retry loop
-                        
-                except yt_dlp.utils.DownloadError as e:
+                        info = ydl.extract_info(url, download=True)
+                        break
+                except Exception as e:
                     retry_count += 1
                     if retry_count >= max_retries:
                         raise Exception(f"Download failed after {max_retries} attempts: {str(e)}")
-                    self.window.after(0, lambda: self.status_label.configure(text=f"Retrying... Attempt {retry_count + 1}"))
-                    time.sleep(2)  # Wait before retrying
+                    time.sleep(2)
 
             self.window.after(0, lambda: self.status_label.configure(text="Download Complete!"))
             self.window.after(0, lambda: messagebox.showinfo("Success", f"Video downloaded successfully to:\n{download_path}"))
@@ -209,7 +193,14 @@ class YouTubeDownloader:
         finally:
             self.window.after(0, self.reset_ui)
 
+    def reset_ui(self):
+        """Reset UI elements after download"""
+        self.window.after(0, lambda: self.download_button.configure(state="normal"))
+        self.window.after(0, lambda: self.progress_bar.set(0))
+        self.window.after(0, lambda: self.status_label.configure(text="Ready"))
+
     def progress_hook(self, d):
+        """Handle download progress updates"""
         if d['status'] == 'downloading':
             try:
                 total_bytes = d.get('total_bytes', 0) or d.get('total_bytes_estimate', 0)
@@ -223,32 +214,9 @@ class YouTubeDownloader:
             except:
                 pass
 
-    def reset_ui(self):
-        self.download_button.configure(state="normal")
-        self.progress_bar.set(0)
-        self.status_label.configure(text="Ready")
     def run(self):
         self.window.mainloop()
 
-def fetch_data(url):
-    try:
-        response = requests.get(url)
-        if response.status_code == 403:
-            print("Error: Access forbidden (HTTP 403). Please check your permissions or the URL.")
-            return None
-        response.raise_for_status()  # Raise an exception for other HTTP errors
-        return response.json()
-    except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
-    except Exception as err:
-        print(f"An error occurred: {err}")
-
-# Example usage
 if __name__ == "__main__":
     app = YouTubeDownloader()
     app.run()
-    
-    url = "https://example.com/protected-resource"
-    data = fetch_data(url)
-    if data:
-        print("Data fetched successfully:", data)
