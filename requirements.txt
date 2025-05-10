@@ -1,8 +1,7 @@
 customtkinter==5.2.1
 yt-dlp==2025.4.30
-certifi==2025.4.30
+certifi==2023.11.17
 Pillow==10.1.0
 packaging==23.2
 darkdetect==0.8.0
 ffmpeg-python==0.2.0
-pause==0.1.0

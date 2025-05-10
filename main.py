@@ -6,6 +6,7 @@ import yt_dlp
 import certifi
 import ssl
 import time
+import requests
 
 class YouTubeDownloader:
     def __init__(self):
@@ -229,6 +230,25 @@ class YouTubeDownloader:
     def run(self):
         self.window.mainloop()
 
+def fetch_data(url):
+    try:
+        response = requests.get(url)
+        if response.status_code == 403:
+            print("Error: Access forbidden (HTTP 403). Please check your permissions or the URL.")
+            return None
+        response.raise_for_status()  # Raise an exception for other HTTP errors
+        return response.json()
+    except requests.exceptions.HTTPError as http_err:
+        print(f"HTTP error occurred: {http_err}")
+    except Exception as err:
+        print(f"An error occurred: {err}")
+
+# Example usage
 if __name__ == "__main__":
     app = YouTubeDownloader()
     app.run()
+    
+    url = "https://example.com/protected-resource"
+    data = fetch_data(url)
+    if data:
+        print("Data fetched successfully:", data)
