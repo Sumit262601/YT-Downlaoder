@@ -156,13 +156,11 @@ class YouTubeDownloader:
                 'progress_hooks': [self.progress_hook],
                 'quiet': True,
                 'no_warnings': True,
-                'nocheckcertificate': False,  # Enable certificate verification
+                'nocheckcertificate': True,  # Changed to True to bypass some SSL issues
                 'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-us,en;q=0.5',
-                    'Accept-Encoding': 'gzip,deflate',
-                    'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Accept': '*/*',
+                    'Accept-Encoding': 'gzip, deflate, br',
                     'Connection': 'keep-alive',
                 },
                 'format_sort': ['res:1080', 'ext:mp4:m4a'],
@@ -170,38 +168,34 @@ class YouTubeDownloader:
                     'key': 'FFmpegVideoConvertor',
                     'preferedformat': 'mp4'
                 }],
-                'socket_opts': {
-                    'ssl_context': ssl_context
-                },
-                'retries': 3,
-                'fragment_retries': 3,
-                'ignoreerrors': True,
-                'socket_timeout': 10,
+                'socket_timeout': 30,  # Increased timeout
+                'retries': 5,  # Increased retries
+                'fragment_retries': 5,
             }
 
-            # Add a small delay before making the request
-            time.sleep(2)
-
-            # Create yt-dlp instance with SSL verification
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # Add retry mechanism
+            max_retries = 3
+            retry_count = 0
+            
+            while retry_count < max_retries:
                 try:
-                    # Extract video info first
-                    self.window.after(0, lambda: self.status_label.configure(text="Extracting video information..."))
-                    info = ydl.extract_info(url, download=False)
-                    
-                    if info is None:
-                        raise Exception("Could not fetch video information")
-                    
-                    # Check if video is copyrighted or private
-                    if info.get('age_limit', 0) > 0 or info.get('is_private', False):
-                        raise Exception("This video is age-restricted or private")
-                    
-                    # Download video
-                    self.window.after(0, lambda: self.status_label.configure(text="Downloading video..."))
-                    ydl.download([url])
-                    
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        self.window.after(0, lambda: self.status_label.configure(text="Extracting video information..."))
+                        info = ydl.extract_info(url, download=False)
+                        
+                        if info is None:
+                            raise Exception("Could not fetch video information")
+                        
+                        self.window.after(0, lambda: self.status_label.configure(text="Downloading video..."))
+                        ydl.download([url])
+                        break  # If successful, break the retry loop
+                        
                 except yt_dlp.utils.DownloadError as e:
-                    raise Exception(f"Download failed: {str(e)}")
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        raise Exception(f"Download failed after {max_retries} attempts: {str(e)}")
+                    self.window.after(0, lambda: self.status_label.configure(text=f"Retrying... Attempt {retry_count + 1}"))
+                    time.sleep(2)  # Wait before retrying
 
             self.window.after(0, lambda: self.status_label.configure(text="Download Complete!"))
             self.window.after(0, lambda: messagebox.showinfo("Success", f"Video downloaded successfully to:\n{download_path}"))
