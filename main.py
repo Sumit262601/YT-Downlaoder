@@ -225,7 +225,7 @@ class YouTubeDownloader:
     def reset_ui(self):
         self.download_button.configure(state="normal")
         self.progress_bar.set(0)
-        
+        self.status_label.configure(text="Ready")
     def run(self):
         self.window.mainloop()
 
