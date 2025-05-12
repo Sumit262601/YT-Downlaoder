@@ -1,3 +1,4 @@
+import os
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import re
@@ -46,7 +47,7 @@ class YouTubeDownloader:
         self.quality_frame.pack(pady=15)
         
         self.quality_var = ctk.StringVar(value="1080p")
-        resolutions = ["2160p", "1440p", "1080p"]
+        resolutions = ["2160p (4K)", "1440p (2K)", "1080p", "720p"]
         
         self.quality_label = ctk.CTkLabel(
             self.quality_frame,
@@ -145,26 +146,32 @@ class YouTubeDownloader:
                 self.window.after(0, self.reset_ui)
                 return
 
-            selected_quality = self.quality_var.get()
+            # Extract numerical resolution value
+            selected_quality = self.quality_var.get().split()[0][:-1]  # Gets "2160" from "2160p (4K)"
             
             ydl_opts = {
-                'format': f'bestvideo[height<={selected_quality[:-1]}]+bestaudio/best',
+                'format': f'bestvideo[height<={selected_quality}]+bestaudio/best',
+                'format_sort': [
+                    'res:2160',
+                    'res:1440',
+                    'res:1080',
+                    'res:720',
+                    'fps'
+                ],
                 'outtmpl': f'{download_path}/%(title)s.%(ext)s',
                 'progress_hooks': [self.progress_hook],
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 },
                 'socket_timeout': 30,
                 'retries': 5,
                 'fragment_retries': 5,
-                'force_generic_extractor': False,
                 'extractor_retries': 5,
-                'file_access_retries': 5,
-                'cookiefile': 'cookies.txt',  # Save cookies to file
-                'merge_output_format': 'mp4'
+                'merge_output_format': 'mp4',
+                'ffmpeg_location': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'venv', 'Scripts', 'ffmpeg.exe')
             }
 
             max_retries = 3

@@ -1,5 +1,6 @@
 # Python cache files
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 
@@ -29,3 +30,10 @@ build/
 # System specific
 .DS_Store
 Thumbs.db
+
+# Media files
+*.mp4
+*.part
+
+# Additional tools
+ffmpeg/
