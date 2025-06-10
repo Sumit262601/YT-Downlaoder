@@ -102,80 +102,96 @@ class YouTubeDownloader:
         self.publisher_label.pack()
 
     def validate_url(self, url, is_playlist=False):
-        try:
-            if not url:
-                return False
+        """
+        Validate YouTube URL format
+        
+        Args:
+            url (str): The URL to validate
+            is_playlist (bool): Whether to validate as playlist URL
             
-            if is_playlist:
-                pattern = r'^(https?://)?(www\.)?(youtube\.com/playlist\?list=[\w-]+)'
-            else:
-                pattern = r'^(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w-]{11}(?:\S+)?$'
-            
-            return bool(re.match(pattern, url))
-        except:
+        Returns:
+            bool: True if valid, False otherwise
+        """
+        # Basic URL validation
+        if not url.strip():
             return False
+        
+        # Check if it's a valid YouTube URL
+        base_pattern = r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/'
+        
+        if is_playlist:
+            # Playlist URL pattern
+            playlist_pattern = base_pattern + r'playlist\?list=.+'
+            return re.match(playlist_pattern, url) is not None
+        else:
+            # Video URL pattern
+            video_pattern = base_pattern + r'watch\?v=.+'
+            return re.match(video_pattern, url) is not None
 
     def browse_download_path(self):
-        download_directory = filedialog.askdirectory(title="Select Download Location")
-        if download_directory:
+        """
+        Open a file dialog to select the download path
+        """
+        folder_selected = filedialog.askdirectory()
+        if folder_selected:
             self.path_entry.configure(state="normal")
-            self.path_entry.delete(0, ctk.END)
-            self.path_entry.insert(0, download_directory)
+            self.path_entry.delete(0, "end")
+            self.path_entry.insert(0, folder_selected)
             self.path_entry.configure(state="readonly")
-            self.status_label.configure(text=f"Download path set to: {download_directory}")
 
     def download_content(self):
-        thread = threading.Thread(target=self.download_content_thread)
-        thread.daemon = True
-        thread.start()
+        """
+        Download the video or playlist based on the provided URL and options
+        """
+        url = self.url_entry.get().strip()
+        download_path = self.path_entry.get().strip()
+        quality = self.quality_var.get()
+        download_type = self.download_type_var.get()
+        is_playlist = download_type == "Playlist"
 
-    def download_content_thread(self):
+        # Input validation
+        if not url or not download_path:
+            messagebox.showerror("Error", "Please provide both URL and download path")
+            return
+
+        if not self.validate_url(url, is_playlist):
+            messagebox.showerror("Error", "Invalid YouTube URL format")
+            return
+
+        if not os.path.exists(download_path):
+            messagebox.showerror("Error", "Selected download path does not exist")
+            return
+
+        # Disable UI elements during download
+        self.download_button.configure(state="disabled")
+        self.url_entry.configure(state="disabled")
+        self.browse_button.configure(state="disabled")
+        self.quality_menu.configure(state="disabled")
+        self.single_video_radio.configure(state="disabled")
+        self.playlist_radio.configure(state="disabled")
+
+        # Start download in a separate thread
+        download_thread = threading.Thread(target=self.download_thread, args=(url, download_path, quality, is_playlist))
+        download_thread.daemon = True
+        download_thread.start()
+
+    def download_thread(self, url, download_path, quality, is_playlist):
+        """
+        Handle the download process in a separate thread
+        """
         try:
-            # Input validation
-            url = self.url_entry.get().strip()
-            is_playlist = self.download_type_var.get() == "Playlist"
-            download_path = self.path_entry.get().strip()
-
-            # Validate inputs
-            if not url or not download_path:
-                messagebox.showerror("Error", "URL and download path are required")
-                return
-
-            if not self.validate_url(url, is_playlist):
-                messagebox.showerror("Error", "Invalid YouTube URL format")
-                return
-
-            if not os.path.exists(download_path):
-                messagebox.showerror("Error", "Download path does not exist")
-                return
-
-            # Update UI state
             self.status_label.configure(text="Initializing download...")
-            self.download_button.configure(state="disabled")
             self.progress_bar.set(0)
-            self.total_videos = 0
-            self.downloaded_videos = 0
-
-            # Update yt-dlp using pip
-            self.status_label.configure(text="Checking for updates...")
-            try:
-                subprocess.run(
-                    [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"],
-                    check=True,
-                    capture_output=True,
-                    text=True
-                )
-            except subprocess.CalledProcessError as e:
-                print(f"Update failed: {e.output}")
-
-            # Configure download options
-            ydl_opts = self.get_ydl_opts(download_path, is_playlist)
-
-            # Start download process
+            
+            # Configure yt-dlp options
+            ydl_opts = self.get_download_options(download_path, quality, is_playlist)
+            
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # Get video information first
+                # Extract video information
                 info = ydl.extract_info(url, download=False)
-                
+                if info is None:
+                    raise Exception("Could not fetch video information")
+
                 # Set total videos count
                 if is_playlist:
                     entries = info.get("entries", [])
@@ -186,94 +202,101 @@ class YouTubeDownloader:
                 if self.total_videos == 0:
                     raise Exception("No valid videos found to download")
 
+                # Start download
                 self.status_label.configure(text=f"Starting download of {self.total_videos} video(s)...")
                 ydl.download([url])
 
-            # Success message
-            self.status_label.configure(text="Download Complete!")
-            messagebox.showinfo("Success", f"Downloaded {self.total_videos} video(s) to:\n{download_path}")
+            # Download completed successfully
+            self.status_label.configure(text="Download completed successfully!")
+            messagebox.showinfo("Success", f"Downloaded {self.total_videos} video(s) successfully!")
 
         except Exception as e:
-            self.status_label.configure(text="Error occurred!")
-            messagebox.showerror("Error", f"Download failed:\n{str(e)}")
+            self.status_label.configure(text="Error occurred during download!")
+            messagebox.showerror("Error", f"Download failed: {str(e)}")
 
         finally:
+            # Re-enable UI elements
             self.reset_ui()
 
-    def reset_ui(self):
-        self.download_button.configure(state="normal")
-        self.progress_bar.set(0)
-        self.status_label.configure(text="Ready to download")
-
-    def progress_hook(self, d):
-        try:
-            status = d.get('status', '')
-            if status == 'started':
-                self.window.after(0, lambda: self.status_label.configure(
-                    text=f"Starting video {self.downloaded_videos + 1} of {self.total_videos}..."
-                ))
-
-            elif status == 'downloading':
-                total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-                downloaded = d.get('downloaded_bytes', 0)
-                
-                if total_bytes > 0:
-                    percentage = min(downloaded / total_bytes, 1.0)
-                    speed = d.get('speed', 0)
-                    speed_str = f"{speed/1024/1024:.1f} MB/s" if speed else "N/A"
-                    
-                    self.window.after(0, lambda: self.progress_bar.set(percentage))
-                    self.window.after(0, lambda: self.status_label.configure(
-                        text=f"Downloading video {self.downloaded_videos + 1} of {self.total_videos}"
-                             f" – {percentage:.1%} @ {speed_str}"
-                    ))
-
-            elif status == 'finished':
-                self.downloaded_videos += 1
-                self.window.after(0, lambda: self.progress_bar.set(1))
-                self.window.after(0, lambda: self.status_label.configure(
-                    text=f"Completed video {self.downloaded_videos} of {self.total_videos}"
-                ))
-        except Exception as e:
-            print(f"Progress hook error: {str(e)}")
-
-    def get_ydl_opts(self, download_path, is_playlist):
-        selected_quality = self.quality_var.get().split()[0][:-1]  # Remove 'p' from quality
+    def get_download_options(self, download_path, quality, is_playlist):
+        """
+        Configure yt-dlp download options based on user selection
+        """
+        # Extract numerical quality value
+        quality_value = quality.split()[0].replace('p', '')
         
-        output_template = (
-            str(Path(download_path) / '%(title)s.%(ext)s') if not is_playlist 
-            else str(Path(download_path) / '%(playlist)s' / '%(playlist_index)s - %(title)s.%(ext)s')
-        )
-        
+        # Configure output template
+        if is_playlist:
+            outtmpl = os.path.join(download_path, '%(playlist_title)s', '%(playlist_index)s - %(title)s.%(ext)s')
+        else:
+            outtmpl = os.path.join(download_path, '%(title)s.%(ext)s')
+
         return {
-            'format': f'bestvideo[height<={selected_quality}]+bestaudio/best[height<={selected_quality}]/best',
-            'outtmpl': output_template,
+            'format': f'bestvideo[height<={quality_value}]+bestaudio/best[height<={quality_value}]',
+            'outtmpl': outtmpl,
             'progress_hooks': [self.progress_hook],
+            'ignoreerrors': True,
+            'noplaylist': not is_playlist,
             'quiet': True,
-            'ignoreerrors': is_playlist,
-            'yes_playlist': is_playlist,
-            'merge_output_format': 'mp4',
-            'nocheckcertificate': True,
-            'socket_timeout': 30,
-            'retries': 5,
-            'extract_flat': True,
             'no_warnings': True,
-            'postprocessors': [{
-                'key': 'FFmpegVideoConvertor',
-                'preferedformat': 'mp4',
-            }],
-            'prefer_ffmpeg': True,
-            'ffmpeg_location': self.get_ffmpeg_path()
+            'extract_flat': "in_playlist" if is_playlist else False,
+            'merge_output_format': 'mp4',
         }
 
-    def get_ffmpeg_path(self):
-        if sys.platform == 'win32':
-            return str(Path(getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))) / 'ffmpeg.exe')
-        return 'ffmpeg'  # for non-Windows systems
+    def progress_hook(self, d):
+        """
+        Handle download progress updates
+        """
+        if d['status'] == 'downloading':
+            # Calculate progress percentage
+            if 'total_bytes' in d:
+                percentage = (d['downloaded_bytes'] / d['total_bytes']) * 100
+            elif 'total_bytes_estimate' in d:
+                percentage = (d['downloaded_bytes'] / d['total_bytes_estimate']) * 100
+            else:
+                percentage = 0
+            
+            # Update progress bar
+            self.window.after(0, lambda: self.progress_bar.set(percentage / 100))
+            
+            # Update status with download speed and ETA
+            speed = d.get('speed', 0)
+            eta = d.get('eta', 0)
+            speed_str = f"{speed/1024/1024:.1f} MB/s" if speed else "N/A"
+            eta_str = f"{eta//60}:{eta%60:02d}" if eta else "N/A"
+            
+            status_text = f"Downloading video {self.downloaded_videos + 1}/{self.total_videos} "
+            status_text += f"({percentage:.1f}%) @ {speed_str} (ETA: {eta_str})"
+            self.window.after(0, lambda: self.status_label.configure(text=status_text))
+
+        elif d['status'] == 'finished':
+            self.downloaded_videos += 1
+            self.window.after(0, lambda: self.progress_bar.set(1))
+            self.window.after(0, lambda: self.status_label.configure(
+                text=f"Processing video {self.downloaded_videos}/{self.total_videos}..."
+            ))
+
+    def reset_ui(self):
+        """
+        Reset UI elements to their initial state
+        """
+        self.window.after(0, lambda: [
+            self.download_button.configure(state="normal"),
+            self.url_entry.configure(state="normal"),
+            self.browse_button.configure(state="normal"),
+            self.quality_menu.configure(state="normal"),
+            self.single_video_radio.configure(state="normal"),
+            self.playlist_radio.configure(state="normal"),
+            self.progress_bar.set(0),
+            setattr(self, 'downloaded_videos', 0),
+            setattr(self, 'total_videos', 0)
+        ])
 
     def run(self):
+        """
+        Start the application
+        """
         self.window.mainloop()
-
 
 if __name__ == "__main__":
     app = YouTubeDownloader()

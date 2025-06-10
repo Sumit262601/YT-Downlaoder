@@ -1,7 +1,27 @@
-customtkinter>=5.2.0
-yt-dlp>=2024.3.10
-certifi>=2024.2.2
+# Core dependencies
+customtkinter==5.2.0
+yt-dlp==2024.3.10
+
+# GUI and media handling
 Pillow==10.1.0
-packaging==23.2
 darkdetect==0.8.0
 ffmpeg-python==0.2.0
+
+# Network and securitycls
+certifi==2024.2.2
+requests==2.31.0
+urllib3==2.2.0
+websockets==12.0
+pycryptodomex==3.19.0
+
+# Media processing
+mutagen==1.47.0
+brotli==1.1.0
+
+# Utilities
+tqdm==4.66.0
+packaging==23.2
+
+# Build tools
+setuptools==69.0.0
+wheel==0.42.0
