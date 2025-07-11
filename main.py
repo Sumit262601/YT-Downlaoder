@@ -27,7 +27,7 @@ class YouTubeDownloader:
         self.title_label = ctk.CTkLabel(
             self.window, 
             text="HD YouTube Downloader",
-            font=("Arial", 34, "bold")
+            font=("Arial", 34   , "bold")
         )
         self.title_label.pack(pady=20)
 
