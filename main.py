@@ -17,6 +17,7 @@ class YouTubeDownloader:
         self.window.title("HD YouTube Downloader")
         self.window.geometry("800x650") # Slightly increased height for better spacing
         self.window.configure(fg_color="#2b2b2b")
+        self.window.resizable(False, False)
 
         # Variables to track playlist download progress
         self.current_video_index = 0
@@ -26,7 +27,7 @@ class YouTubeDownloader:
         self.title_label = ctk.CTkLabel(
             self.window, 
             text="HD YouTube Downloader",
-            font=("Arial", 24, "bold")
+            font=("Arial", 34, "bold")
         )
         self.title_label.pack(pady=20)
 
