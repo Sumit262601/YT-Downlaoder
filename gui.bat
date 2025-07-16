@@ -28,7 +28,6 @@ REM Freeze current installed packages to requirements.txt
 echo ==================================================
 echo            Updating requirements.txt with current versions...
 echo ==================================================
-pip freeze > requirements.txt
 
 REM Run the main Python application
 echo ==================================================
